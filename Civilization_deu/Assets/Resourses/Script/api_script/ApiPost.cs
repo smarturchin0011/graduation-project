@@ -13,7 +13,7 @@ public class ApiPost : MonoBehaviour
 
     [SerializeField] [Range(0,100)] private int MaxHistorayNum;
     private TencentApiManager TencentApiManager;
-    [SerializeField] ChatComposer _chatComposer;
+    //[SerializeField] ChatComposer _chatComposer;
     [SerializeField] public Action<string> OnUIUpdate;
     
     
@@ -23,10 +23,10 @@ public class ApiPost : MonoBehaviour
         content = "";
         
         TencentApiManager = GetComponent<TencentApiManager>();
-        _chatComposer = GetComponent<ChatComposer>();
+        //_chatComposer = GetComponent<ChatComposer>();
         TencentApiManager.SetHistoryLimit(MaxHistorayNum);
 
-        _chatComposer.onUserMessage.AddListener(ClickOnPostText);
+        //_chatComposer.onUserMessage.AddListener(ClickOnPostText);
 
     }
 
