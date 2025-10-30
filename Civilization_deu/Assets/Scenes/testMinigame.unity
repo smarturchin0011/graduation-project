@@ -208,14 +208,14 @@ MonoBehaviour:
   m_HandleRect: {fileID: 774924799}
   m_Direction: 0
   m_MinValue: 1
-  m_MaxValue: 800
+  m_MaxValue: 200
   m_WholeNumbers: 1
-  m_Value: 1
+  m_Value: 20
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1494412998}
-        m_TargetAssemblyTypeName: MiniGameGyroscope, Assembly-CSharp
+      - m_Target: {fileID: 963194229}
+        m_TargetAssemblyTypeName: MiniGameCameraYawFollow, Assembly-CSharp
         m_MethodName: SetGainValue
         m_Mode: 1
         m_Arguments:
@@ -310,9 +310,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1494412998}
-        m_TargetAssemblyTypeName: MiniGameGyroscope, Assembly-CSharp
-        m_MethodName: StartGyro
+      - m_Target: {fileID: 963194229}
+        m_TargetAssemblyTypeName: MiniGameCameraYawFollow, Assembly-CSharp
+        m_MethodName: StartFollow
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -908,55 +908,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 542901882}
   m_CullTransparentMesh: 1
---- !u!1 &564266784
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 564266786}
-  - component: {fileID: 564266785}
-  m_Layer: 0
-  m_Name: SessionTimeOutManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &564266785
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 564266784}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 915b7d11261392e48a3b05decea7338b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  ui: {fileID: 0}
-  timeoutSeconds: 60
-  storytellerPanelIndex: 1
-  storytellerContent: {fileID: 0}
-  tencentApi: {fileID: 0}
---- !u!4 &564266786
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 564266784}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.2990378, y: 0.5007254, z: 90}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_RootOrder: 2
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &615630744
 GameObject:
   m_ObjectHideFlags: 0
@@ -1120,7 +1071,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!65 &670573545
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -1197,7 +1148,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 4
+  m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &705507993
 GameObject:
@@ -1666,9 +1617,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1494412998}
-        m_TargetAssemblyTypeName: MiniGameGyroscope, Assembly-CSharp
-        m_MethodName: StopGyro
+      - m_Target: {fileID: 963194229}
+        m_TargetAssemblyTypeName: MiniGameCameraYawFollow, Assembly-CSharp
+        m_MethodName: StopFollow
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -1782,7 +1733,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 5
+  m_RootOrder: 4
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &963194225
 GameObject:
@@ -1795,6 +1746,7 @@ GameObject:
   - component: {fileID: 963194228}
   - component: {fileID: 963194227}
   - component: {fileID: 963194226}
+  - component: {fileID: 963194229}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -1868,6 +1820,27 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &963194229
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 963194225}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd8ff3f5143d5dd4f996fdcf8e2964d2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  cameraTarget: {fileID: 963194228}
+  debugText: {fileID: 1774310386}
+  yawGain: 20
+  gainSlider: {fileID: 133370732}
+  gainValue: {fileID: 1154457755}
+  smooth: 0.15
+  maxDeltaPerFrame: 20
+  yawSign: 1
+  worldSpace: 1
 --- !u!1 &1077400922
 GameObject:
   m_ObjectHideFlags: 0
@@ -2792,7 +2765,7 @@ RectTransform:
   - {fileID: 531226378}
   - {fileID: 615630745}
   m_Father: {fileID: 0}
-  m_RootOrder: 3
+  m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
@@ -2819,7 +2792,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1494412992}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6a92eb55684294a4c8884be0bbaa1eb7, type: 3}
   m_Name: 
