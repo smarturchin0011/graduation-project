@@ -48,7 +48,7 @@ const unityNamespace = {
     // 是否dotnet runtime
     useDotnetRuntime: false,
     // 是否用了多线程brotli压缩
-    useBrotliMT: true,
+    useBrotliMT: false,
     // Boot config配置，包含例如wait-for-native-debugger、player-connection-ip等信息
     bootConfig: 'player-connection-ip=10.1.122.60',
     // 是否以Development Build构建
