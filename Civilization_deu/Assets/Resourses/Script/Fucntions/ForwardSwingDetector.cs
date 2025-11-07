@@ -69,11 +69,13 @@ public class ForwardSwingDetector : MonoBehaviour
             success = (res) =>
             {
                 Debug.Log("[Accel] StartAccelerometer success");
+                //在微信端跳出debug标识
                 WX.ShowToast(new ShowToastOption { title = "加速计已启动", icon = "success", duration = 800 });
             },
             fail = (res) =>
             {
                 Debug.LogError("[Accel] StartAccelerometer FAIL: " + (res?.errMsg ?? "null"));
+                //在微信端跳出debug标识
                 WX.ShowToast(new ShowToastOption { title = "加速计启动失败", icon = "error", duration = 1500 });
             }
         });
@@ -147,6 +149,7 @@ public class ForwardSwingDetector : MonoBehaviour
         if (fire)
         {
             lastTriggerTime = Time.time;
+            //在微信端跳出debug标识
             WX.ShowToast(new ShowToastOption { title = "Forward!", icon = "success", duration = 500 });
             Debug.Log($"[Accel] TRIGGER: jerk={jerk:0.0}, dPitch={dPitchDeg:0.0}°");
             OnForwardTriggered?.Invoke();
@@ -186,6 +189,7 @@ public class ForwardSwingDetector : MonoBehaviour
     // ========== 调试按钮（可绑 UI 验证后续链路） ==========
     public void DebugFireOnce()
     {
+        //在微信端跳出debug标识
         WX.ShowToast(new ShowToastOption { title = "DebugFire", icon = "none", duration = 600 });
         OnForwardTriggered?.Invoke();
     }

@@ -1,56 +1,105 @@
-// CameraPathMover.cs —— 支持“回到原组初始 → 过渡到下一组初始 → 继续前进”
-// 用法：同前。若同场景有多组，设置它们的 chapterOrder（或在 Inspector 手动把 groups 列表排好）
+// 功能：相机按锚点组平滑推进（无强吸附抖动），支持“最后锚点→下一章节→返回→切下组初始”。
+// 运动实现：LateUpdate + 绝对时间推进 + Vector3.SmoothDamp(位置) + 指数式 RotateTowards(旋转)。
+// 适配：微信小游戏端锁帧，减少帧抖引起的台阶感。
+// 依赖：可选订阅 ForwardSwingDetector.OnForwardTriggered 触发前进；CameraAnchorGroup 提供锚点序列。
+
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections;
-using System.Linq;
 using System.Collections.Generic;
+using System.Linq;
 
 public class CameraPathMover : MonoBehaviour
 {
+    // ========== 组切换过渡模式 ==========
     public enum GroupTransitionMode
     {
-        Teleport,           // 直接瞬移
-        SmoothMove,         // 从当前初始锚点平滑移动到下组初始锚点
-        FadeAndTeleport,    // 淡入黑 → 切组瞬移 → 淡出黑
-        FadeAndSmoothMove   // 淡入黑 → 切组并从旧初始到新初始平滑移动 → 淡出黑
+        Teleport,           // 直接瞬移到下组初始
+        SmoothMove,         // 从旧初始平滑移动到下组初始
+        FadeAndTeleport,    // 黑场 → 切组瞬移 → 亮场
+        FadeAndSmoothMove   // 黑场 → 切组 → 亮场后平滑移动到下组初始
     }
 
-    [Header("要推进的相机（或相机Rig）")]
+    [Header("目标相机（或相机Rig）")]
     public Transform cameraRig;
 
-    [Header("推进插值")]
-    public float moveDuration = 1.2f;
+    [Header("推进时长（同组内相邻锚点）")]
+    public float moveDuration = 1.20f;
 
     [Header("组间过渡")]
     public GroupTransitionMode transitionMode = GroupTransitionMode.FadeAndTeleport;
-    public float groupMoveDuration = 1.0f;           // SmoothMove用
-    public CanvasGroup fadeCanvas;                   // 可选：全屏UI上放一层Image(黑)+CanvasGroup
-    public float fadeDuration = 0.3f;
+    public float groupMoveDuration = 1.00f;           // 仅 SmoothMove/FadeAndSmoothMove 用
+    public CanvasGroup fadeCanvas;                    // 可选：用于淡入淡出（全屏Image+CanvasGroup）
+    public float fadeDuration = 0.30f;
 
-    [Header("检测器（为空则自动找）")]
+    [Header("触发器（为空则自动找）")]
     public ForwardSwingDetector detector;
 
-    [Header("（可选）显式指定本场景组；留空则自动按 chapterOrder 查找/排序")]
+    [Header("组管理（可留空自动搜集并按 chapterOrder 排序）")]
     public List<CameraAnchorGroup> groups;
 
-    // 运行态
-    private CameraAnchorGroup _group;
-    private int _currentIndex = 0;
-    private bool _isMoving = false;
-    private int _groupIndex = 0; // 当前组索引（在 groups 中）
+    // ====== 平滑与防抖参数（核心：无强吸附）======
+    [Header("插值曲线（0..1）")]
+    public AnimationCurve ease = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
+    [Header("位置平滑（SmoothDamp）")]
+    public bool useSmoothDamp = true;
+    public float smoothTime = 0.12f;     // 越大越柔
+    public float maxSpeed = 100f;
+
+    [Header("旋转平滑（指数式 RotateTowards）")]
+    public float rotSmoothTime = 0.10f;  // 越大越柔（指数时间常数）
+
+    [Header("结束收敛阈值（不强行吸附）")]
+    public float posEpsilon = 0.002f;    // 米
+    public float velEpsilon = 0.002f;    // 米/秒（SmoothDamp 的速度向量模长）
+    public float angEpsilon = 0.15f;     // 度
+    public int   settleFrames = 2;       // 连续满足阈值的帧数才判结束
+
+    // ====== 运行态 ======
+    private CameraAnchorGroup _group;
+    private int _groupIndex = 0;       // 当前组在 groups 中的索引
+    private int _currentIndex = 0;     // 当前锚点索引（组内）
+    private bool _isMoving = false;
+
+    // Tween 状态（LateUpdate 驱动）
+    private bool tweenActive = false;
+    private Vector3 fromPos, toPos, vel;    // vel 用于 SmoothDamp
+    private Quaternion fromRot, toRot;
+    private float tweenStart, tweenDuration;
+    private int _pendingIndex = -1;
+    private int settledCount = 0;
+
+    // ====== 生命周期 ======
     private void Awake()
     {
-        if (cameraRig == null) cameraRig = Camera.main ? Camera.main.transform : null;
+        if (cameraRig == null)
+        {
+            var cam = Camera.main;
+            if (cam) cameraRig = cam.transform;
+        }
+    }
+
+    private void Start()
+    {
+        // 锁 60 帧（Unity + 微信端）
+        Application.targetFrameRate = 60;
+        QualitySettings.vSyncCount = 0;
+#if UNITY_WEIXINMINIGAME || (UNITY_WEBGL && !UNITY_EDITOR)
+        WeChatWASM.WX.SetPreferredFramesPerSecond(60);
+#endif
     }
 
     private void OnEnable()
     {
         SceneManager.sceneLoaded += OnSceneLoaded;
+
+        // 绑定检测器
         BindDetector(detector ?? FindObjectOfType<ForwardSwingDetector>());
+
+        // 组初始化
         BootstrapGroupsInScene();
-        // 进入场景后，将相机放到当前组的初始点
+        // 放到当前组初始
         JumpToGroupInitial();
     }
 
@@ -60,15 +109,15 @@ public class CameraPathMover : MonoBehaviour
         UnbindDetector();
     }
 
-    private void OnSceneLoaded(Scene s, LoadSceneMode m)
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         BootstrapGroupsInScene();
         JumpToGroupInitial();
     }
 
+    // ====== 组管理 ======
     private void BootstrapGroupsInScene()
     {
-        // 若没手动指定 groups，则自动搜集并按 chapterOrder 排序
         if (groups == null || groups.Count == 0)
         {
             groups = FindObjectsOfType<CameraAnchorGroup>()
@@ -77,7 +126,6 @@ public class CameraPathMover : MonoBehaviour
                      .ToList();
         }
 
-        // 选默认组：优先 isDefaultGroup=true；否则取排序后第一个
         if (groups.Count > 0)
         {
             var def = groups.FirstOrDefault(g => g.isDefaultGroup) ?? groups[0];
@@ -94,6 +142,9 @@ public class CameraPathMover : MonoBehaviour
     {
         _group = group;
         _currentIndex = 0;
+        tweenActive = false;
+        _isMoving = false;
+        settledCount = 0;
     }
 
     private void JumpToGroupInitial()
@@ -107,6 +158,7 @@ public class CameraPathMover : MonoBehaviour
         }
     }
 
+    // ====== 触发器绑定 ======
     private void BindDetector(ForwardSwingDetector d)
     {
         if (d == null) return;
@@ -123,72 +175,45 @@ public class CameraPathMover : MonoBehaviour
     private void HandleForwardTriggered()
     {
         if (_isMoving || _group == null || !_group.IsValid || cameraRig == null) return;
-        if (_currentIndex >= _group.Count - 1) return; // 已是最后一个
 
-        StartCoroutine(MoveToIndex(_currentIndex + 1));
+        if (_currentIndex >= _group.Count - 1) return; // 已在最后一个锚点
+
+        MoveToIndex(_currentIndex + 1);
     }
 
-    private IEnumerator MoveToIndex(int targetIndex)
-    {
-        _isMoving = true;
-
-        Transform to = _group.GetAnchor(targetIndex);
-        Vector3 p0 = cameraRig.position;
-        Quaternion r0 = cameraRig.rotation;
-        Vector3 p1 = to.position;
-        Quaternion r1 = to.rotation;
-
-        float t = 0f;
-        while (t < moveDuration)
-        {
-            t += Time.deltaTime;
-            float k = Mathf.Clamp01(t / moveDuration);
-            cameraRig.position = Vector3.Lerp(p0, p1, k);
-            cameraRig.rotation = Quaternion.Slerp(r0, r1, k);
-            yield return null;
-        }
-
-        cameraRig.position = p1;
-        cameraRig.rotation = r1;
-        _currentIndex = targetIndex;
-        _isMoving = false;
-    }
-
-    // UI：下一章节
+    // ====== 对外（UI）：下一章节 ======
     public void OnNextChapter()
     {
         if (_isMoving || _group == null || !_group.IsValid || cameraRig == null) return;
+        if (_currentIndex != _group.Count - 1) return; // 仅在最后一个锚点有效
 
-        // 只有到达最后一个锚点才响应（与你的规则一致）
-        if (_currentIndex == _group.Count - 1)
-        {
-            StartCoroutine(NextChapterFlow());
-        }
+        StartCoroutine(NextChapterFlow());
     }
 
     private IEnumerator NextChapterFlow()
     {
         _isMoving = true;
 
-        // Step1：原路返回到当前组初始
+        // Step1：按原路返回到当前组初始
         for (int i = _currentIndex - 1; i >= 0; --i)
-            yield return MoveStep(_group.GetAnchor(i), moveDuration);
-
+        {
+            var to = _group.GetAnchor(i);
+            yield return MoveStep(to, moveDuration);
+        }
         _currentIndex = 0;
 
-        // Step2：如果没有下一个组，流程结束（可在此触发“真正换章节/切场景”的外部事件）
+        // Step2：若无下一个组，流程结束（可在此触发真正的章节切换/场景切换）
         if (groups == null || groups.Count == 0 || _groupIndex >= groups.Count - 1)
         {
             _isMoving = false;
             yield break;
         }
 
-        // 记录旧组初始与新组初始（做组间过渡）
         var oldInit = _group.GetAnchor(0);
         var nextGroup = groups[_groupIndex + 1];
         var newInit = nextGroup.GetAnchor(0);
 
-        // Step3：执行组间过渡
+        // Step3：组间过渡
         switch (transitionMode)
         {
             case GroupTransitionMode.Teleport:
@@ -198,10 +223,8 @@ public class CameraPathMover : MonoBehaviour
                 break;
 
             case GroupTransitionMode.SmoothMove:
-                // 切组前先保证相机在旧初始，再从旧初始平滑移动到新初始
                 cameraRig.position = oldInit.position;
                 cameraRig.rotation = oldInit.rotation;
-                // 先切组再动（方便统一 currentIndex=0）
                 SetAnchorGroup(nextGroup);
                 yield return MoveStep(newInit, groupMoveDuration);
                 break;
@@ -216,58 +239,115 @@ public class CameraPathMover : MonoBehaviour
 
             case GroupTransitionMode.FadeAndSmoothMove:
                 yield return Fade(1f);
-                // 放到旧初始，切组
                 cameraRig.position = oldInit.position;
                 cameraRig.rotation = oldInit.rotation;
                 SetAnchorGroup(nextGroup);
-                yield return Fade(0f);            // 先亮起来
-                yield return MoveStep(newInit, groupMoveDuration); // 再平滑过去
+                yield return Fade(0f);
+                yield return MoveStep(newInit, groupMoveDuration);
                 break;
         }
 
         _groupIndex++;
         _currentIndex = 0;
         _isMoving = false;
-        // 现在继续等 ForwardSwingDetector 的触发即可推进下一组
-    }
-
-    private IEnumerator MoveStep(Transform to, float duration)
-    {
-        Vector3 p0 = cameraRig.position;
-        Quaternion r0 = cameraRig.rotation;
-        Vector3 p1 = to.position;
-        Quaternion r1 = to.rotation;
-
-        float t = 0f;
-        while (t < duration)
-        {
-            t += Time.deltaTime;
-            float k = Mathf.Clamp01(t / duration);
-            cameraRig.position = Vector3.Lerp(p0, p1, k);
-            cameraRig.rotation = Quaternion.Slerp(r0, r1, k);
-            yield return null;
-        }
-        cameraRig.position = p1;
-        cameraRig.rotation = r1;
     }
 
     private IEnumerator Fade(float targetAlpha)
     {
         if (fadeCanvas == null) yield break;
-        fadeCanvas.blocksRaycasts = true;
 
+        fadeCanvas.blocksRaycasts = true;
         float start = fadeCanvas.alpha;
         float t = 0f;
-        while (t < fadeDuration)
+        float dur = Mathf.Max(0.01f, fadeDuration);
+        while (t < dur)
         {
-            t += Time.deltaTime;
-            float k = Mathf.Clamp01(t / Mathf.Max(0.01f, fadeDuration));
+            t += Time.unscaledDeltaTime; // UI 淡入用不受缩放的时间
+            float k = Mathf.Clamp01(t / dur);
             fadeCanvas.alpha = Mathf.Lerp(start, targetAlpha, k);
             yield return null;
         }
         fadeCanvas.alpha = targetAlpha;
-
-        // 只有全亮时才放开点击
+        // 全亮时才放开点击
         fadeCanvas.blocksRaycasts = targetAlpha > 0.01f;
+    }
+
+    // ====== 移动（无强吸附版本）======
+    // 发起到组内某索引的移动
+    private void MoveToIndex(int targetIndex)
+    {
+        var to = _group.GetAnchor(targetIndex);
+        BeginMoveTo(to, moveDuration, targetIndex);
+    }
+
+    // 单步移动（等待式，给回退/组间过渡用）
+    private IEnumerator MoveStep(Transform to, float duration)
+    {
+        BeginMoveTo(to, duration, -1);
+        while (tweenActive) yield return null;
+    }
+
+    // 启动一次移动
+    private void BeginMoveTo(Transform target, float duration, int targetIndexAfter)
+    {
+        if (cameraRig == null || target == null) return;
+
+        tweenActive = true;
+        _isMoving = true;
+        settledCount = 0;
+
+        fromPos = cameraRig.position;
+        fromRot = cameraRig.rotation;
+        toPos   = target.position;
+        toRot   = target.rotation;
+
+        vel = Vector3.zero;
+        tweenStart = Time.time;
+        tweenDuration = Mathf.Max(0.0001f, duration);
+
+        _pendingIndex = targetIndexAfter;
+    }
+
+    // LateUpdate 驱动补间（核心消抖）
+    private void LateUpdate()
+    {
+        if (!tweenActive) return;
+
+        // 绝对时间推进：避免掉帧“欠步”
+        float t = Mathf.Clamp01((Time.time - tweenStart) / tweenDuration);
+        float k = ease != null ? ease.Evaluate(t) : t;
+
+        // 位置目标（曲线 Lerp），再用 SmoothDamp 追踪，弱化台阶
+        Vector3 lerpTargetPos = Vector3.LerpUnclamped(fromPos, toPos, k);
+        if (useSmoothDamp)
+            cameraRig.position = Vector3.SmoothDamp(cameraRig.position, lerpTargetPos, ref vel, smoothTime, maxSpeed, Time.deltaTime);
+        else
+            cameraRig.position = lerpTargetPos;
+
+        // 旋转：指数式步长收敛（不强吸附）
+        float ang = Quaternion.Angle(cameraRig.rotation, toRot);
+        float step = ang * (1f - Mathf.Exp(-Time.deltaTime / Mathf.Max(0.0001f, rotSmoothTime)));
+        cameraRig.rotation = Quaternion.RotateTowards(cameraRig.rotation, toRot, step);
+
+        // 收敛判定：连续若干帧满足阈值才结束
+        float dist = Vector3.Distance(cameraRig.position, toPos);
+        float speed = vel.magnitude;
+        float angLeft = Quaternion.Angle(cameraRig.rotation, toRot);
+
+        bool settledThisFrame = (dist <= posEpsilon) && (speed <= velEpsilon) && (angLeft <= angEpsilon);
+        settledCount = settledThisFrame ? (settledCount + 1) : 0;
+
+        // 结束：不强制赋 toPos/toRot，避免“吸附抖动”
+        if (settledCount >= settleFrames || t >= 1f + 0.2f) // 兜底时限
+        {
+            tweenActive = false;
+            _isMoving = false;
+
+            if (_pendingIndex >= 0)
+            {
+                _currentIndex = _pendingIndex;
+                _pendingIndex = -1;
+            }
+        }
     }
 }
