@@ -194,13 +194,18 @@ public class CameraPathMover : MonoBehaviour
     {
         _isMoving = true;
 
-        // Step1：按原路返回到当前组初始
-        for (int i = _currentIndex - 1; i >= 0; --i)
+        // Step1：按原路返回到当前组初始（可选）
+        bool needReturn = (_group != null && _group.returnToInitialOnNextChapter);
+        if (needReturn)
         {
-            var to = _group.GetAnchor(i);
-            yield return MoveStep(to, moveDuration);
+            for (int i = _currentIndex - 1; i >= 0; --i)
+            {
+                var to = _group.GetAnchor(i);
+                yield return MoveStep(to, moveDuration);
+            }
+            // 只有执行了“原路返回”时，才把索引重置到 0
+            _currentIndex = 0;
         }
-        _currentIndex = 0;
 
         // Step2：若无下一个组，流程结束（可在此触发真正的章节切换/场景切换）
         if (groups == null || groups.Count == 0 || _groupIndex >= groups.Count - 1)
@@ -333,11 +338,10 @@ public class CameraPathMover : MonoBehaviour
         float dist = Vector3.Distance(cameraRig.position, toPos);
         float speed = vel.magnitude;
         float angLeft = Quaternion.Angle(cameraRig.rotation, toRot);
-
         bool settledThisFrame = (dist <= posEpsilon) && (speed <= velEpsilon) && (angLeft <= angEpsilon);
         settledCount = settledThisFrame ? (settledCount + 1) : 0;
 
-        // 结束：不强制赋 toPos/toRot，避免“吸附抖动”
+// 结束：不强制赋 toPos/toRot，避免“吸附抖动”
         if (settledCount >= settleFrames || t >= 1f + 0.2f) // 兜底时限
         {
             tweenActive = false;
@@ -347,6 +351,15 @@ public class CameraPathMover : MonoBehaviour
             {
                 _currentIndex = _pendingIndex;
                 _pendingIndex = -1;
+
+                // ★ NEW：如果当前组要求“到达最后点位自动跳下一章”，就在这里触发
+                if (_group != null &&
+                    _group.IsValid &&
+                    _group.autoNextChapterOnLastAnchor &&
+                    _currentIndex == _group.Count - 1)
+                {
+                    OnNextChapter();   // 等价于你在外部手动点“下一章节”
+                }
             }
         }
     }
