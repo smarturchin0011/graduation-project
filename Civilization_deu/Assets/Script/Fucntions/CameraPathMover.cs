@@ -61,6 +61,17 @@ public class CameraPathMover : MonoBehaviour
     private int _groupIndex = 0;       // 当前组在 groups 中的索引
     private int _currentIndex = 0;     // 当前锚点索引（组内）
     private bool _isMoving = false;
+    
+    /// <summary>
+    /// 当前正在使用的锚点组（只读）
+    /// </summary>
+    public CameraAnchorGroup CurrentGroup => _group;
+
+    /// <summary>
+    /// 当前组在 groups 列表中的索引（只读）
+    /// </summary>
+    public int CurrentGroupIndex => _groupIndex;
+
 
     // Tween 状态（LateUpdate 驱动）
     private bool tweenActive = false;

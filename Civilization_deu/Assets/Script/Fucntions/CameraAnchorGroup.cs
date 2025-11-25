@@ -9,6 +9,9 @@ public class CameraAnchorGroup : MonoBehaviour
     [Tooltip("按顺序填：0=初始，其后依序")]
     public List<Transform> anchors = new List<Transform>();
     
+    [Tooltip("本锚点组的交互点")]
+    public List<Transform> hotSpots = new List<Transform>();
+    
     [Tooltip("从本组最后锚点切到下一章节前，是否按原路退回到本组初始锚点")]
     public bool returnToInitialOnNextChapter = true;
     
@@ -20,8 +23,6 @@ public class CameraAnchorGroup : MonoBehaviour
 
     [Tooltip("同场景多分组的显示/切换顺序（可选）。越小越先。")]
     public int chapterOrder = 0;
-    
-
     public bool IsValid => anchors != null && anchors.Count >= 1;
     public int Count => anchors?.Count ?? 0;
 
