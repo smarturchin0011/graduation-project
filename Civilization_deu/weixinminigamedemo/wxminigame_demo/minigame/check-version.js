@@ -59,10 +59,10 @@ export const isSupportCacheAudio = !isIOS || compareVersion(version, '8.0.31');
 export const isSupportInnerAudio = compareVersion(version, '8.0.38');
 // 检查是否支持brotli压缩，pc基础库>=2.29.2，真机基础库>=2.21.1
 // @ts-ignore
-const isPcBrotliInvalid = isPc && !compareVersion(SDKVersion, true ? '2.29.2' : '2.32.3');
+const isPcBrotliInvalid = isPc && !compareVersion(SDKVersion, false ? '2.29.2' : '2.32.3');
 const isMobileBrotliInvalid = isMobile && !compareVersion(SDKVersion, '2.21.1');
 // @ts-ignore
-const isBrotliInvalid = false && (isPcBrotliInvalid || isMobileBrotliInvalid);
+const isBrotliInvalid = true && (isPcBrotliInvalid || isMobileBrotliInvalid);
 // iOS系统版本>=17.5时，小游戏退后台会导致异常
 export const isIOS175 = compareVersion(systemVersion, '17.5') && isH5Renderer;
 // 是否支持开放数据域渲染模式，使用ScreenCanvas模式可以优化ToTempFilePath的使用，PC 上 ScreenCanvas 模式事件处理有问题，PC 先禁止这个模式

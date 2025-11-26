@@ -9,7 +9,8 @@ public class HotSpotClickFunc : MonoBehaviour
     [SerializeField]
     public UnityEvent OnClick;
 
-    
+    [Header("点击后自动失活自身")]
+    public bool disableSelfOnClick = true;
 
     private void OnMouseDown()
     {
@@ -25,5 +26,10 @@ public class HotSpotClickFunc : MonoBehaviour
     public void Click()
     {
         OnClick?.Invoke();
+        // 标记为“已交互”：把自己失活
+        if (disableSelfOnClick)
+        {
+            gameObject.SetActive(false);
+        }
     }
 }

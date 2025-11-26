@@ -9,17 +9,17 @@ import checkVersion from './check-version';
 import { launchEventType, scaleMode } from './plugin-config';
 import { preloadWxCommonFont } from './unity-sdk/font/index';
 const managerConfig = {
-    DATA_FILE_MD5: 'af1e1360b232fa2b',
-    CODE_FILE_MD5: '3639e4684c6a734d',
+    DATA_FILE_MD5: 'a097b2f9366f9041',
+    CODE_FILE_MD5: '52dbb8fcc255d0bc',
     GAME_NAME: 'webgl',
     APPID: 'wx20f80816e65e6bf5',
-    DATA_FILE_SIZE: '19167232',
+    DATA_FILE_SIZE: '35793125',
     OPT_DATA_FILE_SIZE: '$OPT_DATA_FILE_SIZE',
-    DATA_CDN: '',
+    DATA_CDN: 'https://cloud1-3gzyvlvb07d83591-1384341079.tcloudbaseapp.com/version1.0_1126/',
     // 资源包是否作为小游戏分包加载
-    loadDataPackageFromSubpackage: true,
+    loadDataPackageFromSubpackage: false,
     // 资源包放小游戏分包加载时，是否br压缩
-    compressDataPackage: false,
+    compressDataPackage: true,
     // 需要在网络空闲时预加载的资源，支持如下形式的路径
     preloadDataList: [
         // 'DATA_CDN/StreamingAssets/WebGL/textures_8d265a9dfd6cb7669cdb8b726f0afb1e',
@@ -119,7 +119,7 @@ checkVersion().then((enable) => {
                 // 加载页的素材配置
                 materialConfig: {
                     // 背景图或背景视频，两者都填时，先展示背景图，视频可播放后，播放视频
-                    backgroundImage: 'images/BG_card_v2.png',
+                    backgroundImage: 'images/homepage.jpg',
                     backgroundVideo: '',
                     iconImage: 'images/unity_logo.png', // icon图片，一般不更换
                 },

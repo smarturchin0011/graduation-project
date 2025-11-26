@@ -96,9 +96,6 @@ public class CameraPathMover : MonoBehaviour
         // 锁 60 帧（Unity + 微信端）
         Application.targetFrameRate = 60;
         QualitySettings.vSyncCount = 0;
-#if UNITY_WEIXINMINIGAME || (UNITY_WEBGL && !UNITY_EDITOR)
-        WeChatWASM.WX.SetPreferredFramesPerSecond(60);
-#endif
     }
 
     private void OnEnable()
